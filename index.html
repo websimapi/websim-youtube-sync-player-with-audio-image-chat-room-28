@@ -1,0 +1,1136 @@
+<html><head><base href="https://websim.app"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YouTube Sync Player with Audio-Image Chat Room</title>
+<script src="https://www.youtube.com/iframe_api"></script>
+<link rel="stylesheet" href="https://file.garden/ZuYjtjD4sHYt_ZFw/youtube_together.css">
+<style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #f0f0f0;
+    }
+
+    #mainContainer {
+      display: flex;
+      flex-direction: row;
+      height: 100vh;
+    }
+
+    #leftColumn, #rightColumn {
+      padding: 10px;
+    }
+
+    #leftColumn {
+      flex: 2;
+      overflow-y: auto;
+    }
+
+    #rightColumn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #playerContainer {
+      position: relative;
+      width: 100%;
+      height: 0;
+      padding-bottom: 56.25%; /* 16:9 aspect ratio */
+    }
+
+    #player {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #playerOverlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 24px;
+    }
+
+    #controls {
+      margin-top: 10px;
+    }
+
+    #controls button, #controls input {
+      margin-right: 5px;
+      padding: 10px;
+      font-size: 14px;
+    }
+
+    #canvas {
+      width: 100%;
+      max-width: 640px;
+      margin-top: 10px;
+    }
+
+    .audio-controls {
+      margin-top: 10px;
+    }
+
+    #status {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
+    #chatContainer {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #chatMessages {
+      flex: 1;
+      overflow-y: auto;
+      background-color: #fff;
+      padding: 10px;
+      border: 1px solid #ccc;
+      margin-bottom: 10px;
+    }
+
+    #chatForm {
+      display: flex;
+    }
+
+    #chatInput {
+      flex: 1;
+      padding: 10px;
+      font-size: 14px;
+    }
+
+    #sendChatBtn {
+      padding: 10px;
+      font-size: 14px;
+      margin-left: 5px;
+    }
+
+    #peerList {
+      margin-top: 10px;
+      background-color: #fff;
+      padding: 10px;
+      border: 1px solid #ccc;
+    }
+
+    .peer {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .peer img {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      margin-right: 10px;
+    }
+
+    .peer-info {
+      flex: 1;
+    }
+
+    .peer-info.muted {
+      opacity: 0.5;
+    }
+
+    .host-badge {
+      background-color: #ff9800;
+      color: #fff;
+      padding: 2px 4px;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-left: 5px;
+    }
+
+    .peer-actions button {
+      margin-left: 5px;
+      padding: 5px;
+      font-size: 12px;
+    }
+
+    .chat-message {
+      margin-bottom: 10px;
+    }
+
+    .chat-message img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin-top: 5px;
+    }
+
+    .chat-message .play-video-button {
+      margin-left: 10px;
+      padding: 5px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    body.dark-mode {
+      background-color: #121212;
+      color: #e0e0e0;
+    }
+
+    body.dark-mode #chatMessages,
+    body.dark-mode #peerList {
+      background-color: #1e1e1e;
+      border-color: #333;
+    }
+
+    body.dark-mode #chatInput,
+    body.dark-mode #sendChatBtn,
+    body.dark-mode #controls input,
+    body.dark-mode #controls button {
+      background-color: #2e2e2e;
+      color: #e0e0e0;
+      border: 1px solid #444;
+    }
+
+    body.dark-mode .peer-actions button {
+      background-color: #2e2e2e;
+      color: #e0e0e0;
+    }
+
+    @media (max-width: 768px) {
+      #mainContainer {
+        flex-direction: column;
+      }
+
+      #leftColumn, #rightColumn {
+        padding: 5px;
+      }
+
+      #controls button, #controls input {
+        padding: 8px;
+        font-size: 12px;
+      }
+
+      #chatInput, #sendChatBtn {
+        padding: 8px;
+        font-size: 12px;
+      }
+
+      .peer img {
+        width: 30px;
+        height: 30px;
+      }
+
+      .peer-actions button {
+        padding: 5px;
+        font-size: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="mainContainer">
+    <div id="leftColumn">
+      <div id="currentVideoUrl"></div>
+      <div id="playerContainer">
+        <div id="player"></div>
+        <div id="playerOverlay">Click to load video</div>
+      </div>
+      <div id="controls">
+        <button id="playPauseBtn" disabled>Play/Pause</button>
+        <button id="syncBtn" disabled>Sync Time</button>
+        <input id="videoUrlInput" type="text" placeholder="Enter YouTube video URL" disabled>
+        <button id="playVideoBtn" disabled>Play</button>
+        <button id="changeVideoBtn" disabled>Change Video</button>
+        <button id="darkModeToggle">Toggle Dark Mode</button>
+      </div>
+      <canvas id="canvas"></canvas>
+      <div>
+        <input type="file" id="audioFileInput" accept="audio/*">
+        <button id="generateImageButton">Generate Image</button>
+        <button id="encodeButton">Encode Audio</button>
+        <button id="sendEncodedButton" disabled>Send Encoded Image</button>
+      </div>
+      <div class="audio-controls">
+        <button id="toggleAudioButton" disabled>Stop</button>
+      </div>
+      <div id="status"></div>
+    </div>
+    <div id="rightColumn">
+      <div id="chatContainer">
+        <div id="chatMessages"></div>
+        <form id="chatForm">
+          <input type="text" id="chatInput" placeholder="Type a message..." required>
+          <button type="submit" id="sendChatBtn">Send</button>
+        </form>
+      </div>
+      <div id="peerList"></div>
+    </div>
+  </div>
+
+  <script>
+    const room = new WebsimSocket();
+    let player;
+    let isHost = false;
+    let isPlayerReady = false;
+    let currentVideoId = 'dQw4w9WgXcQ';
+    let darkMode = false;
+    let mutedUsers = new Set();
+    let autoChangeHostTimeout;
+
+    let originalImageData;
+    let audioContext;
+    let receivedChunks = {};
+    let currentAudioSources = {};
+    let currentAudioBuffers = {};
+    let lastPlayedAudioData = null;
+
+    function initializeYouTubePlayer() {
+      player = new YT.Player('player', {
+        height: '360',
+        width: '640',
+        videoId: currentVideoId,
+        playerVars: {
+          'autoplay': 0,
+          'controls': 1,
+        },
+        events: {
+          'onReady': onPlayerReady,
+          'onStateChange': onPlayerStateChange
+        }
+      });
+    }
+
+    function onPlayerReady(event) {
+      isPlayerReady = true;
+      document.getElementById('playPauseBtn').disabled = false;
+      document.getElementById('syncBtn').disabled = false;
+      document.getElementById('playerOverlay').style.display = 'none';
+
+      document.getElementById('playPauseBtn').addEventListener('click', togglePlayPause);
+      document.getElementById('syncBtn').addEventListener('click', syncTime);
+      document.getElementById('changeVideoBtn').addEventListener('click', changeVideo);
+      document.getElementById('playVideoBtn').addEventListener('click', changeVideo);
+      document.getElementById('videoUrlInput').addEventListener('input', function() {
+        const videoUrl = this.value.trim();
+        const playVideoBtn = document.getElementById('playVideoBtn');
+        if (isHost && videoUrl) {
+          const videoId = extractVideoId(videoUrl);
+          if (videoId) {
+            playVideoBtn.disabled = false;
+          } else {
+            playVideoBtn.disabled = true;
+          }
+        } else {
+          playVideoBtn.disabled = true;
+        }
+      });
+
+      room.onmessage = handleMessage;
+      room.onPeersChanged = updatePeerList;
+
+      checkAndAssignHost();
+
+      room.send({ type: 'requestVideoState' });
+
+      updateCurrentVideoUrl();
+      loadMessageHistory();
+
+      scheduleAutoChangeHost();
+    }
+
+    function updateCurrentVideoUrl() {
+      const videoUrl = `https://www.youtube.com/watch?v=${currentVideoId}`;
+      document.getElementById('currentVideoUrl').textContent = `Current Video: ${videoUrl}`;
+    }
+
+    function checkAndAssignHost() {
+      room.store.get('host').then(hostId => {
+        if (!hostId || !room.party.peers[hostId]) {
+          const peerIds = Object.keys(room.party.peers);
+          if (peerIds.length > 0) {
+            const randomIndex = Math.floor(Math.random() * peerIds.length);
+            setHost(peerIds[randomIndex]);
+          }
+        } else {
+          updateHostControls(hostId);
+        }
+      });
+    }
+
+    function setHost(clientId) {
+      room.store.update({
+        id: 'host',
+        dependencies: { clientId },
+        updateFunction: () => clientId
+      });
+      updateHostControls(clientId);
+      clearMutes();
+    }
+
+    function updateHostControls(hostId) {
+      isHost = hostId === room.party.client.id;
+      document.getElementById('videoUrlInput').disabled = !isHost;
+      document.getElementById('changeVideoBtn').disabled = !isHost;
+      document.getElementById('playVideoBtn').disabled = !isHost || !document.getElementById('videoUrlInput').value.trim();
+      const playButtons = document.querySelectorAll('.play-video-button');
+      playButtons.forEach(button => {
+        button.disabled = !isHost;
+      });
+      updatePeerList(room.party.peers);
+    }
+
+    function onPlayerStateChange(event) {
+      if (isHost) {
+        const state = event.data;
+        const time = player.getCurrentTime();
+        room.send({ type: 'videoStateChange', state, time });
+
+        if (state === YT.PlayerState.ENDED) {
+          scheduleAutoChangeHost();
+        } else {
+          clearTimeout(autoChangeHostTimeout);
+        }
+      }
+    }
+
+    function toggleDarkMode() {
+      darkMode = !darkMode;
+      document.body.classList.toggle('dark-mode', darkMode);
+    }
+
+    function toggleMute(clientId) {
+      if (mutedUsers.has(clientId)) {
+        mutedUsers.delete(clientId);
+      } else {
+        mutedUsers.add(clientId);
+      }
+      clearMutedMessages();
+      updatePeerList(room.party.peers);
+    }
+
+    function clearMutes() {
+      mutedUsers.clear();
+      updatePeerList(room.party.peers);
+      loadMessageHistory();
+    }
+
+    function scheduleAutoChangeHost() {
+      clearTimeout(autoChangeHostTimeout);
+      autoChangeHostTimeout = setTimeout(() => {
+        if (isHost && player.getPlayerState() === YT.PlayerState.ENDED) {
+          const peerIds = Object.keys(room.party.peers).filter(id => id !== room.party.client.id);
+          if (peerIds.length > 0) {
+            const randomIndex = Math.floor(Math.random() * peerIds.length);
+            grantHost(peerIds[randomIndex]);
+          }
+        }
+      }, 30000);
+    }
+
+    function togglePlayPause() {
+      const state = player.getPlayerState();
+      if (state === YT.PlayerState.PLAYING) {
+        player.pauseVideo();
+        document.getElementById('playPauseBtn').textContent = 'Play';
+      } else {
+        player.playVideo();
+        document.getElementById('playPauseBtn').textContent = 'Pause';
+      }
+    }
+
+    function syncTime() {
+      if (isHost) {
+        const time = player.getCurrentTime();
+        room.send({ type: 'syncTime', time });
+      }
+    }
+
+    function changeVideo() {
+      if (isHost) {
+        const videoUrl = document.getElementById('videoUrlInput').value.trim();
+        const videoId = extractVideoId(videoUrl);
+        if (videoId) {
+          currentVideoId = videoId;
+          player.loadVideoById(videoId);
+          room.send({ type: 'changeVideo', videoId });
+          updateCurrentVideoUrl();
+          document.getElementById('playVideoBtn').disabled = true;
+        } else {
+          alert('Invalid YouTube URL');
+        }
+      }
+    }
+
+    function changeVideoById(videoId) {
+      currentVideoId = videoId;
+      player.loadVideoById(videoId);
+      room.send({ type: 'changeVideo', videoId });
+      updateCurrentVideoUrl();
+      document.getElementById('playPauseBtn').textContent = 'Pause';
+    }
+
+    function extractVideoId(url) {
+      const regExp = /^.*(?:youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|watch\?.+&v=)([^#\&\?]*).*/;
+      const match = url.match(regExp);
+      return (match && match[1].length === 11) ? match[1] : null;
+    }
+
+    function extractYouTubeUrl(text) {
+      const urlRegex = /https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([^\s]+)/g;
+      const match = urlRegex.exec(text);
+      return match ? match[0] : null;
+    }
+
+    function handleMessage(event) {
+      const data = event.data;
+      switch (data.type) {
+        case 'videoStateChange':
+          if (!isHost && isPlayerReady) {
+            if (data.state === YT.PlayerState.PLAYING) {
+              player.seekTo(data.time, true);
+              player.playVideo();
+            } else {
+              player.pauseVideo();
+            }
+          }
+          break;
+        case 'syncTime':
+          if (!isHost && isPlayerReady) {
+            player.seekTo(data.time, true);
+          }
+          break;
+        case 'requestVideoState':
+          if (isHost && isPlayerReady) {
+            const state = player.getPlayerState();
+            const time = player.getCurrentTime();
+            room.send({ type: 'videoStateChange', state, time });
+            room.send({ type: 'changeVideo', videoId: currentVideoId });
+          }
+          break;
+        case 'changeVideo':
+          if (!isHost && isPlayerReady) {
+            currentVideoId = data.videoId;
+            player.loadVideoById(data.videoId);
+            updateCurrentVideoUrl();
+          }
+          break;
+        case 'grantHost':
+          setHost(data.newHostId);
+          break;
+        case 'connected':
+          loadMessageHistory();
+          break;
+        case 'disconnected':
+          checkAndAssignHost();
+          break;
+        case 'chat':
+          if (!mutedUsers.has(data.clientId)) {
+            addChatMessage(data.username, data.message, data.clientId, data.timestamp);
+            updateMessageHistory(data);
+          }
+          break;
+        case 'encodedImageChunk':
+          handleEncodedImageChunk(data);
+          break;
+      }
+    }
+
+    function updatePeerList(peers) {
+      const peerListContainer = document.getElementById('peerList');
+      peerListContainer.innerHTML = '<h2>Connected Peers</h2>';
+
+      room.store.get('host').then(hostId => {
+        const uniqueUsernames = new Set();
+        Object.entries(peers).forEach(([clientId, { avatarUrl, username }]) => {
+          if (!uniqueUsernames.has(username)) {
+            uniqueUsernames.add(username);
+            const peerElement = document.createElement('div');
+            peerElement.className = 'peer';
+            const isCurrentUser = clientId === room.party.client.id;
+            const isHostUser = clientId === hostId;
+            const isMuted = mutedUsers.has(clientId);
+            peerElement.innerHTML = `
+              <img src="${avatarUrl}" alt="${username}'s avatar">
+              <div class="peer-info ${isMuted ? 'muted' : ''}">
+                <span>${username}${isCurrentUser ? ' (You)' : ''}</span>
+                ${isHostUser ? '<span class="host-badge">Host</span>' : ''}
+                <div class="peer-details">
+                  <span>Status: ${isCurrentUser ? 'Connected' : 'Active'}</span>
+                </div>
+              </div>
+              <div class="peer-actions">
+                ${isHost && !isCurrentUser ? `
+                  <button onclick="grantHost('${clientId}')">Make Host</button>
+                  <button onclick="toggleMute('${clientId}')" class="mute-btn">
+                    ${isMuted ? 'Unmute' : 'Mute'}
+                  </button>
+                ` : ''}
+              </div>
+            `;
+            peerListContainer.appendChild(peerElement);
+          }
+        });
+      });
+    }
+
+    function grantHost(newHostId) {
+      if (isHost) {
+        room.send({ type: 'grantHost', newHostId });
+        setHost(newHostId);
+      }
+    }
+
+    function updateMessageHistory(message) {
+      room.store.update({
+        id: 'messageHistory',
+        dependencies: { message, mutedUsers: Array.from(mutedUsers) },
+        updateFunction: (history) => {
+          if (!history) history = [];
+          
+          const isDuplicate = history.some(msg => 
+            msg.clientId === message.clientId && 
+            msg.timestamp === message.timestamp &&
+            msg.message === message.message
+          );
+          
+          if (!isDuplicate && !Array.from(mutedUsers).includes(message.clientId)) {
+            history.push(message);
+            if (history.length > 20) history.shift();
+          }
+          
+          return history;
+        }
+      });
+    }
+
+    function loadMessageHistory() {
+      room.store.get('messageHistory').then(history => {
+        if (history && Array.isArray(history)) {
+          const chatMessages = document.getElementById('chatMessages');
+          chatMessages.innerHTML = ''; 
+          const uniqueMessages = [];
+          history.forEach(msg => {
+            if (msg && msg.clientId && msg.timestamp && msg.message &&
+                !uniqueMessages.some(m => 
+                  m.clientId === msg.clientId && 
+                  m.timestamp === msg.timestamp &&
+                  m.message === msg.message
+                ) &&
+                !mutedUsers.has(msg.clientId)) {
+              uniqueMessages.push(msg);
+              addChatMessage(msg.username, msg.message, msg.clientId, msg.timestamp);
+            }
+          });
+        }
+      }).catch(error => {
+        console.error('Error loading message history:', error);
+      });
+    }
+
+    function addChatMessage(username, message, clientId, timestamp) {
+      if (!mutedUsers.has(clientId)) {
+        const chatMessages = document.getElementById('chatMessages');
+        const messageElement = document.createElement('div');
+        const time = new Date(timestamp).toLocaleTimeString();
+        messageElement.className = 'chat-message';
+        messageElement.dataset.clientId = clientId;
+
+        // Create message content
+        const messageContent = document.createElement('span');
+        messageContent.innerHTML = `<span class="chat-time">[${time}]</span> <span class="chat-username">${username}:</span> <span class="chat-text">${message}</span>`;
+        
+        messageElement.appendChild(messageContent);
+        
+        // Check if the message contains a YouTube URL
+        const youtubeUrl = extractYouTubeUrl(message);
+        if (youtubeUrl) {
+          const playButton = document.createElement('button');
+          playButton.textContent = 'Play';
+          playButton.className = 'play-video-button';
+          playButton.disabled = !isHost; // Enable only for the Host
+
+          if (isHost) {
+            playButton.onclick = () => {
+              const videoId = extractVideoId(youtubeUrl);
+              if (videoId) {
+                changeVideoById(videoId);
+              } else {
+                alert('Invalid YouTube URL');
+              }
+            };
+          }
+
+          messageElement.appendChild(playButton);
+        }
+
+        chatMessages.appendChild(messageElement);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+    }
+
+    function clearMutedMessages() {
+      const chatMessages = document.getElementById('chatMessages');
+      const messages = chatMessages.getElementsByClassName('chat-message');
+      
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const clientId = messages[i].dataset.clientId;
+        if (mutedUsers.has(clientId)) {
+          chatMessages.removeChild(messages[i]);
+        }
+      }
+
+      room.store.update({
+        id: 'messageHistory',
+        dependencies: { mutedUsers: Array.from(mutedUsers) },
+        updateFunction: (history) => {
+          if (!history) return [];
+          return history.filter(msg => !Array.from(mutedUsers).includes(msg.clientId));
+        }
+      });
+    }
+
+    function sendChatMessage(message) {
+      const sanitizedMessage = sanitizeInput(message);
+      const chatMessage = {
+        type: 'chat',
+        username: room.party.client.username,
+        message: sanitizedMessage,
+        clientId: room.party.client.id,
+        timestamp: new Date().toISOString()
+      };
+      room.send(chatMessage);
+      if (!mutedUsers.has(room.party.client.id)) {
+        updateMessageHistory(chatMessage);
+      }
+    }
+
+    function sanitizeInput(input) {
+      const div = document.createElement('div');
+      div.textContent = input;
+      return div.innerHTML;
+    }
+
+    async function generateAndRenderImage(fileName, imageSize) {
+      return new Promise((resolve) => {
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = imageSize;
+        canvas.height = imageSize;
+        ctx.fillStyle = `hsl(${Math.random() * 360}, 100%, 80%)`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'black';
+        ctx.font = '20px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(fileName, canvas.width / 2, canvas.height / 2);
+        
+        document.getElementById('status').textContent = 'Placeholder image created. Generating AI image...';
+        
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          document.getElementById('status').textContent = 'AI image generated. Rendering...';
+          setTimeout(() => {
+            originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            resolve();
+          }, 2000);
+        };
+
+        img.onerror = () => {
+          console.error('Error loading AI-generated image. Using placeholder.');
+          document.getElementById('status').textContent = 'Failed to load AI image. Using placeholder.';
+          setTimeout(() => {
+            originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            resolve();
+          }, 2000);
+        };
+
+        img.src = `https://websimcreationengine.com/api/generate-image?prompt=${encodeURIComponent(fileName)}&size=${imageSize}`;
+        img.alt = fileName;
+        document.body.appendChild(img);
+        img.style.display = 'none';
+      });
+    }
+
+    async function generateImage() {
+      const status = document.getElementById('status');
+      const generateImageButton = document.getElementById('generateImageButton');
+      status.textContent = 'Processing...';
+      generateImageButton.disabled = true;
+
+      try {
+        const audioFileInput = document.getElementById('audioFileInput');
+        const fileName = audioFileInput.files.length > 0 ? audioFileInput.files[0].name : 'default-audio.mp3';
+        const imageSize = calculateImageSize();
+        await generateAndRenderImage(fileName, imageSize);
+        status.textContent = 'Image generated successfully!';
+      } catch (error) {
+        console.error('Error:', error);
+        status.textContent = 'An error occurred while generating the image. Please try again.';
+      } finally {
+        generateImageButton.disabled = false;
+      }
+    }
+
+    function calculateImageSize() {
+      const audioFileInput = document.getElementById('audioFileInput');
+      const audioFile = audioFileInput.files[0];
+      const audioSize = audioFile ? audioFile.size : 1024 * 1024; 
+      const requiredPixels = Math.ceil(audioSize / 3) * 3;
+      return Math.ceil(Math.sqrt(requiredPixels));
+    }
+
+    async function encodeAudio() {
+      const status = document.getElementById('status');
+      const encodeButton = document.getElementById('encodeButton');
+      const sendEncodedButton = document.getElementById('sendEncodedButton');
+      status.textContent = 'Processing...';
+      encodeButton.disabled = true;
+      sendEncodedButton.disabled = true;
+
+      try {
+        let audioData;
+        let fileName;
+        const audioFileInput = document.getElementById('audioFileInput');
+        if (audioFileInput.files.length > 0) {
+          const file = audioFileInput.files[0];
+          fileName = file.name;
+          const arrayBuffer = await file.arrayBuffer();
+          audioData = new Uint8Array(arrayBuffer);
+        } else {
+          fileName = 'default-audio.mp3';
+          const response = await fetch('https://example.com/default-audio.mp3');
+          const audioBuffer = await response.arrayBuffer();
+          audioData = new Uint8Array(audioBuffer);
+        }
+
+        const imageSize = calculateImageSize();
+        resizeCanvasForEncoding(imageSize);
+
+        await encodeAudioIntoImage(audioData);
+
+        status.textContent = 'Audio encoded into the image successfully!';
+        sendEncodedButton.disabled = false;
+      } catch (error) {
+        console.error('Error:', error);
+        status.textContent = 'An error occurred while encoding audio. Please try again.';
+      } finally {
+        encodeButton.disabled = false;
+      }
+    }
+
+    function resizeCanvasForEncoding(newSize) {
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      tempCanvas.getContext('2d').drawImage(canvas, 0, 0);
+      
+      canvas.width = newSize;
+      canvas.height = newSize;
+      ctx.drawImage(tempCanvas, 0, 0, tempCanvas.width, tempCanvas.height, 0, 0, newSize, newSize);
+      
+      originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    }
+
+    function encodeAudioIntoImage(audioData) {
+      return new Promise((resolve) => {
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+
+        const audioLength = audioData.length;
+        data[0] = (audioLength >> 24) & 255;
+        data[1] = (audioLength >> 16) & 255;
+        data[2] = (audioLength >> 8) & 255;
+        data[3] = audioLength & 255;
+
+        let audioIndex = 0;
+        for (let i = 4; i < data.length && audioIndex < audioData.length; i += 12) {
+          data[i] = audioData[audioIndex++];
+          if (audioIndex < audioData.length) data[i + 1] = audioData[audioIndex++];
+          if (audioIndex < audioData.length) data[i + 2] = audioData[audioIndex++];
+          data[i + 3] = 255; 
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+        resolve();
+      });
+    }
+
+    function sendEncodedImage() {
+      const canvas = document.getElementById('canvas');
+      const audioFileInput = document.getElementById('audioFileInput');
+      const dataURL = canvas.toDataURL('image/png');
+      const base64Data = dataURL.split(',')[1];
+      const fileName = audioFileInput.files[0] ? audioFileInput.files[0].name : 'default-audio.mp3';
+      const chunkSize = 16000; 
+      const chunks = [];
+      
+      for (let i = 0; i < base64Data.length; i += chunkSize) {
+        chunks.push(base64Data.slice(i, i + chunkSize));
+      }
+      
+      const totalChunks = chunks.length;
+      
+      chunks.forEach((chunk, index) => {
+        room.send({
+          type: 'encodedImageChunk',
+          chunk: chunk,
+          index: index,
+          total: totalChunks,
+          fileName: fileName,
+          clientId: room.party.client.id,
+          username: room.party.client.username
+        });
+      });
+      
+      document.getElementById('status').textContent = 'Encoded image sent to chat.';
+    }
+
+    function handleEncodedImageChunk(data) {
+      const senderKey = data.clientId;
+      if (!receivedChunks[senderKey]) {
+        receivedChunks[senderKey] = [];
+      }
+      receivedChunks[senderKey][data.index] = data.chunk;
+      if (receivedChunks[senderKey].filter(Boolean).length === data.total) {
+        const completeBase64 = receivedChunks[senderKey].join('');
+        const imageData = 'data:image/png;base64,' + completeBase64;
+        displayEncodedImage(data.username, imageData, data.fileName, data.clientId);
+        delete receivedChunks[senderKey];
+      }
+    }
+
+    function displayEncodedImage(username, imageData, fileName, clientId) {
+      const chatMessages = document.getElementById('chatMessages');
+      const messageElement = document.createElement('div');
+      messageElement.className = 'chat-message';
+      
+      const imageElement = document.createElement('img');
+      imageElement.src = imageData;
+      imageElement.alt = fileName || `Encoded image from ${username}`;
+      imageElement.style.maxWidth = '200px';
+      imageElement.style.cursor = 'pointer';
+
+      const playPauseButton = document.createElement('button');
+      playPauseButton.textContent = 'Pause';
+      decodeAndPlayAudio(imageData, fileName, clientId, playPauseButton);
+
+      const downloadButton = document.createElement('button');
+      downloadButton.textContent = 'Download';
+      downloadButton.onclick = async () => {
+        const audioData = await decodeAudioFromImageDataAsync(imageData);
+        const audioBlob = new Blob([audioData], { type: 'audio/mp3' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const imageBlob = await (await fetch(imageData)).blob();
+        const imageUrl = URL.createObjectURL(imageBlob);
+
+        const newWindow = window.open('', '_blank');
+        newWindow.document.title = 'Download Audio and Image';
+
+        const audioDownloadLink = newWindow.document.createElement('a');
+        audioDownloadLink.href = audioUrl;
+        audioDownloadLink.download = fileName || 'decoded-audio.mp3';
+        audioDownloadLink.textContent = 'Download Audio';
+
+        const imageDownloadLink = newWindow.document.createElement('a');
+        imageDownloadLink.href = imageUrl;
+        imageDownloadLink.download = 'encoded-image.png';
+        imageDownloadLink.textContent = 'Download Image';
+
+        newWindow.document.body.appendChild(audioDownloadLink);
+        newWindow.document.body.appendChild(newWindow.document.createElement('br'));
+        newWindow.document.body.appendChild(imageDownloadLink);
+
+        audioDownloadLink.click();
+        imageDownloadLink.click();
+      };
+
+      playPauseButton.onclick = () => {
+        toggleAudioPlayback(clientId, playPauseButton);
+      };
+
+      messageElement.innerHTML = `<span class="chat-username">${username} sent an encoded image:</span>`;
+      messageElement.appendChild(imageElement);
+      messageElement.appendChild(downloadButton);
+      messageElement.appendChild(playPauseButton);
+
+      chatMessages.appendChild(messageElement);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function decodeAndPlayAudio(imageData, fileName, clientId, playPauseButton) {
+      const img = new Image();
+      img.onload = async () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        const imageDataObj = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const audioData = decodeAudioFromImageData(imageDataObj);
+        await playDecodedAudio(audioData, clientId, playPauseButton);
+      };
+      img.src = imageData;
+    }
+
+    function decodeAudioFromImageData(imageData) {
+      const data = imageData.data;
+      const audioLength = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
+      const audioData = new Uint8Array(audioLength);
+
+      let audioIndex = 0;
+      for (let i = 4; i < data.length && audioIndex < audioLength; i += 12) {
+        audioData[audioIndex++] = data[i];
+        if (audioIndex < audioLength) audioData[audioIndex++] = data[i + 1];
+        if (audioIndex < audioLength) audioData[audioIndex++] = data[i + 2];
+      }
+
+      return audioData;
+    }
+
+    async function decodeAudioFromImageDataAsync(imageDataUrl) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage(img, 0, 0);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const audioData = decodeAudioFromImageData(imageData);
+          resolve(audioData);
+        };
+        img.src = imageDataUrl;
+      });
+    }
+
+    async function playDecodedAudio(audioData, clientId, playPauseButton) {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      const audioBuffer = await audioContext.decodeAudioData(audioData.buffer);
+      currentAudioBuffers[clientId] = audioBuffer;
+      playAudioBuffer(clientId, playPauseButton);
+    }
+
+    function playAudioBuffer(clientId, playPauseButton) {
+      if (currentAudioBuffers[clientId]) {
+        const source = audioContext.createBufferSource();
+        source.buffer = currentAudioBuffers[clientId];
+        source.connect(audioContext.destination);
+        source.onended = () => {
+          currentAudioSources[clientId] = null;
+          playPauseButton.textContent = 'Play';
+        };
+        source.start(0);
+        currentAudioSources[clientId] = source;
+        playPauseButton.textContent = 'Pause';
+      }
+    }
+
+    function toggleAudioPlayback(clientId, playPauseButton) {
+      if (currentAudioSources[clientId]) {
+        currentAudioSources[clientId].stop();
+        currentAudioSources[clientId] = null;
+        playPauseButton.textContent = 'Play';
+      } else {
+        playAudioBuffer(clientId, playPauseButton);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('playerOverlay').addEventListener('click', () => {
+        if (!isPlayerReady) {
+          initializeYouTubePlayer();
+        }
+      });
+
+      room.onRecordChanged = (id) => {
+        if (id === 'host') {
+          checkAndAssignHost();
+        }
+      };
+
+      document.getElementById('chatForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const chatInput = document.getElementById('chatInput');
+        const message = chatInput.value.trim();
+        if (message) {
+          sendChatMessage(message);
+          chatInput.value = '';
+        }
+      });
+
+      document.getElementById('darkModeToggle').addEventListener('click', toggleDarkMode);
+      document.getElementById('generateImageButton').addEventListener('click', generateImage);
+      document.getElementById('encodeButton').addEventListener('click', encodeAudio);
+      document.getElementById('sendEncodedButton').addEventListener('click', sendEncodedImage);
+      document.getElementById('toggleAudioButton').addEventListener('click', () => {
+        if (lastPlayedAudioData) {
+          toggleAudioPlayback(lastPlayedAudioData);
+        }
+      });
+
+      const chatContainer = document.getElementById('chatContainer');
+      chatContainer.addEventListener('dragover', (e) => {
+        e.preventDefault();
+      });
+
+      chatContainer.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+          const file = e.dataTransfer.files[0];
+          if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = () => {
+              sendDroppedImage(reader.result, file.name);
+            };
+            reader.readAsDataURL(file);
+          } else {
+            alert('Please drop a valid image file.');
+          }
+        }
+      });
+    });
+
+    function sendDroppedImage(dataURL, fileName) {
+      const base64Data = dataURL.split(',')[1];
+      const chunkSize = 16000;
+      const chunks = [];
+
+      for (let i = 0; i < base64Data.length; i += chunkSize) {
+        chunks.push(base64Data.slice(i, i + chunkSize));
+      }
+
+      const totalChunks = chunks.length;
+
+      chunks.forEach((chunk, index) => {
+        room.send({
+          type: 'encodedImageChunk',
+          chunk: chunk,
+          index: index,
+          total: totalChunks,
+          fileName: fileName,
+          clientId: room.party.client.id,
+          username: room.party.client.username
+        });
+      });
+
+      document.getElementById('status').textContent = 'Dropped image sent to chat.';
+    }
+  </script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body></html>
